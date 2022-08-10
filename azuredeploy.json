@@ -2,8 +2,20 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
+        "resourceTags": {
+            "type": "object",
+            "defaultValue": {
+                "Department": "Deployment",
+                "Version": "Blank",
+                "Group": "Engineering"
+            }
+        },
         "location": {
-            "type": "string"
+            "type": "string",
+            "defaultValue" : "[resourceGroup().location]",
+            "metadata": {
+                "description": "The location for all resources"
+            }
         },
         "networkInterfaceName": {
             "type": "string"
@@ -39,7 +51,8 @@
             "type": "string"
         },
         "pipDeleteOption": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "Delete"
         },
         "virtualMachineName": {
             "type": "string"
@@ -50,23 +63,34 @@
         "virtualMachineRG": {
             "type": "string"
         },
-        "osDiskType": {
-            "type": "string"
+        "dataDiskSize": {
+            "type": "int",
+            "defaultValue": 1024,
+            "metadata": {
+                "description": "The size in GB of the data disks"
+            }
         },
-        "osDiskDeleteOption": {
-            "type": "string"
+        "dataDisksCount": {
+            "type": "int",
+            "defaultValue": 2,
+            "metadata": {
+                "description": "The number of data disks to create"
+            }
         },
-        "dataDisks": {
-            "type": "array"
-        },
-        "dataDiskResources": {
-            "type": "array"
+        "diskType": {
+            "type": "string",
+            "defaultValue": "StandardSSD_LRS",
+            "metadata": {
+                "description": "The Storage type of the data Disks"
+            }
         },
         "virtualMachineSize": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "Standard_D4s_v5"
         },
         "nicDeleteOption": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "Delete"
         },
         "adminUsername": {
             "type": "string"
@@ -75,22 +99,28 @@
             "type": "secureString"
         },
         "patchMode": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "Manual"
         },
         "enableHotpatching": {
-            "type": "bool"
+            "type": "bool",
+            "defaultValue": false
         },
         "autoShutdownStatus": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "Enabled"
         },
         "autoShutdownTime": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "2300"
         },
         "autoShutdownTimeZone": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "Eastern Standard Time"
         },
         "autoShutdownNotificationStatus": {
-            "type": "string"
+            "type": "string",
+            "defaultValue": "Disabled"
         },
         "autoShutdownNotificationLocale": {
             "type": "string"
@@ -100,6 +130,7 @@
         }
     },
     "variables": {
+        "OSDiskName": "[format('{0}-OSDisk', toLower(parameters('virtualMachineName')))]",
         "nsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', parameters('networkSecurityGroupName'))]",
         "vnetName": "[parameters('virtualNetworkName')]",
         "vnetId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', parameters('virtualNetworkName'))]",
@@ -139,12 +170,7 @@
                     "id": "[variables('nsgId')]"
                 }
             },
-            "tags": {
-                "User": "Br-Ant",
-                "Department": "Deployment",
-                "Version": "Blank",
-                "Group": "Engineering"
-            }
+            "tags": "[parameters('resourceTags')]"
         },
         {
             "name": "[parameters('networkSecurityGroupName')]",
@@ -154,12 +180,7 @@
             "properties": {
                 "securityRules": "[parameters('networkSecurityGroupRules')]"
             },
-            "tags": {
-                "User": "Br-Ant",
-                "Department": "Deployment",
-                "Version": "Blank",
-                "Group": "Engineering"
-            }
+            "tags": "[parameters('resourceTags')]"
         },
         {
             "name": "[parameters('virtualNetworkName')]",
@@ -172,12 +193,7 @@
                 },
                 "subnets": "[parameters('subnets')]"
             },
-            "tags": {
-                "User": "Br-Ant",
-                "Department": "Deployment",
-                "Version": "Blank",
-                "Group": "Engineering"
-            }
+            "tags": "[parameters('resourceTags')]"
         },
         {
             "name": "[parameters('publicIpAddressName')]",
@@ -190,32 +206,7 @@
             "sku": {
                 "name": "[parameters('publicIpAddressSku')]"
             },
-            "tags": {
-                "User": "Br-Ant",
-                "Department": "Deployment",
-                "Version": "Blank",
-                "Group": "Engineering"
-            }
-        },
-        {
-            "name": "[parameters('dataDiskResources')[copyIndex()].name]",
-            "type": "Microsoft.Compute/disks",
-            "apiVersion": "2022-03-02",
-            "location": "[parameters('location')]",
-            "properties": "[parameters('dataDiskResources')[copyIndex()].properties]",
-            "sku": {
-                "name": "[parameters('dataDiskResources')[copyIndex()].sku]"
-            },
-            "copy": {
-                "name": "managedDiskResources",
-                "count": "[length(parameters('dataDiskResources'))]"
-            },
-            "tags": {
-                "User": "Br-Ant",
-                "Department": "Deployment",
-                "Version": "Blank",
-                "Group": "Engineering"
-            }
+            "tags": "[parameters('resourceTags')]"
         },
         {
             "name": "[parameters('virtualMachineName')]",
@@ -232,11 +223,15 @@
                 },
                 "storageProfile": {
                     "osDisk": {
-                        "createOption": "fromImage",
+                        "osType": "Windows",
+                        "name": "[variables('OSDiskName')]",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage",
                         "managedDisk": {
-                            "storageAccountType": "[parameters('osDiskType')]"
+                            "storageAccountType": "[parameters('diskType')]"
                         },
-                        "deleteOption": "[parameters('osDiskDeleteOption')]"
+                        "diskSizeGB": 128,
+                        "deleteOption": "Delete"
                     },
                     "imageReference": {
                         "publisher": "MicrosoftWindowsServer",
@@ -246,52 +241,45 @@
                     },
                     "copy": [
                         {
-                            "name": "dataDisks",
-                            "count": "[length(parameters('dataDisks'))]",
-                            "input": {
-                                "lun": "[parameters('dataDisks')[copyIndex('dataDisks')].lun]",
-                                "createOption": "[parameters('dataDisks')[copyIndex('dataDisks')].createOption]",
-                                "caching": "[parameters('dataDisks')[copyIndex('dataDisks')].caching]",
-                                "diskSizeGB": "[parameters('dataDisks')[copyIndex('dataDisks')].diskSizeGB]",
-                                "managedDisk": {
-                                    "id": "[coalesce(parameters('dataDisks')[copyIndex('dataDisks')].id, if(equals(parameters('dataDisks')[copyIndex('dataDisks')].name, json('null')), json('null'), resourceId('Microsoft.Compute/disks', parameters('dataDisks')[copyIndex('dataDisks')].name)))]",
-                                    "storageAccountType": "[parameters('dataDisks')[copyIndex('dataDisks')].storageAccountType]"
-                                },
-                                "deleteOption": "[parameters('dataDisks')[copyIndex('dataDisks')].deleteOption]",
-                                "writeAcceleratorEnabled": "[parameters('dataDisks')[copyIndex('dataDisks')].writeAcceleratorEnabled]"
+                        "name": "dataDisks",
+                        "count": "[length(range(0, parameters('dataDisksCount')))]",
+                        "input": {
+                            "name": "[format('{0}-DataDisk{1}', parameters('virtualMachineName'), range(0, parameters('dataDisksCount'))[copyIndex('dataDisks')])]",
+                            "diskSizeGB": "[parameters('dataDiskSize')]",
+                            "lun": "[range(0, parameters('dataDisksCount'))[copyIndex('dataDisks')]]",
+                            "createOption": "Attach",
+                            "deleteOption": "Delete",
+                            "managedDisk": {
+                                "storageAccountType": "[parameters('diskType')]"
                             }
                         }
-                    ]
-                },
-                "networkProfile": {
-                    "networkInterfaces": [
-                        {
-                            "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaceName'))]",
-                            "properties": {
-                                "deleteOption": "[parameters('nicDeleteOption')]"
-                            }
                         }
-                    ]
-                },
-                "osProfile": {
-                    "computerName": "[parameters('virtualMachineComputerName')]",
-                    "adminUsername": "[parameters('adminUsername')]",
-                    "adminPassword": "[parameters('adminPassword')]",
-                    "windowsConfiguration": {
-                        "enableAutomaticUpdates": false,
-                        "provisionVmAgent": true,
-                        "patchSettings": {
-                            "enableHotpatching": "[parameters('enableHotpatching')]",
-                            "patchMode": "[parameters('patchMode')]"
+                    ],
+                    "networkProfile": {
+                        "networkInterfaces": [
+                            {
+                                "id": "[resourceId('Microsoft.Network/networkInterfaces', parameters('networkInterfaceName'))]",
+                                "properties": {
+                                    "deleteOption": "[parameters('nicDeleteOption')]"
+                                }
+                            }
+                        ]
+                    },
+                    "osProfile": {
+                        "computerName": "[parameters('virtualMachineComputerName')]",
+                        "adminUsername": "[parameters('adminUsername')]",
+                        "adminPassword": "[parameters('adminPassword')]",
+                        "windowsConfiguration": {
+                            "enableAutomaticUpdates": false,
+                            "provisionVmAgent": true,
+                            "patchSettings": {
+                                "enableHotpatching": "[parameters('enableHotpatching')]",
+                                "patchMode": "[parameters('patchMode')]"
+                            }
                         }
                     }
-                }
             },
-            "tags": {
-                "User": "Br-Ant",
-                "Department": "Deployment",
-                "Version": "Blank",
-                "Group": "Engineering"
+                "tags": "[parameters('resourceTags')]"
             }
         },
         {
@@ -317,12 +305,7 @@
                     "emailRecipient": "[parameters('autoShutdownNotificationEmail')]"
                 }
             },
-            "tags": {
-                "User": "Br-Ant",
-                "Department": "Deployment",
-                "Version": "Blank",
-                "Group": "Engineering"
-            }
+            "tags": "[parameters('resourceTags')]"
         }
     ],
     "outputs": {
