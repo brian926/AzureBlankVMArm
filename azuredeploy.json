@@ -54,7 +54,7 @@
         },
         "virtualMachineSize": {
             "type": "string",
-            "defaultValue": "Standard_D4s_v5"
+            "defaultValue": "Standard_D4s_v4"
         },
         "nicDeleteOption": {
             "type": "string",
@@ -89,12 +89,6 @@
         "autoShutdownNotificationStatus": {
             "type": "string",
             "defaultValue": "Disabled"
-        },
-        "autoShutdownNotificationLocale": {
-            "type": "string"
-        },
-        "autoShutdownNotificationEmail": {
-            "type": "string"
         }
     },
     "variables": {
@@ -102,7 +96,8 @@
         "nsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', 'TestVM-01-nsg')]",
         "vnetId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', 'Deployment_Engineering-vnet')]",
         "subnetRef": "[concat(variables('vnetId'), '/subnets/', 'default')]",
-        "networkInterfaceName": "[concat(toLower(parameters('virtualMachineName')), '-nic')]"
+        "networkInterfaceName": "[concat(toLower(parameters('virtualMachineName')), '-nic')]",
+        "publicIP": "[concat(toLower(parameters('virtualMachineName')), '-publicIP')]"
     },
     "resources": [
         {
@@ -113,7 +108,7 @@
             "dependsOn": [
                 "[concat('Microsoft.Network/networkSecurityGroups/', 'TestVM-01-nsg')]",
                 "[concat('Microsoft.Network/virtualNetworks/', 'Deployment_Engineering-vnet')]",
-                "[concat('Microsoft.Network/publicIpAddresses/', 'TestVM-01-ip')]"
+                "[concat('Microsoft.Network/publicIpAddresses/', variables('publicIP'))]"
             ],
             "properties": {
                 "ipConfigurations": [
@@ -125,7 +120,7 @@
                             },
                             "privateIPAllocationMethod": "Dynamic",
                             "publicIpAddress": {
-                                "id": "[resourceId(resourceGroup().name, 'Microsoft.Network/publicIpAddresses', 'TestVM-01-ip')]",
+                                "id": "[resourceId(resourceGroup().name, 'Microsoft.Network/publicIpAddresses', variables('publicIP'))]",
                                 "properties": {
                                     "deleteOption": "[parameters('pipDeleteOption')]"
                                 }
@@ -194,7 +189,7 @@
             }
         },
         {
-            "name": "TestVM-01-ip",
+            "name": "[variables('publicIP')]",
             "type": "Microsoft.Network/publicIpAddresses",
             "apiVersion": "2020-11-01",
             "location": "eastus",
@@ -215,7 +210,6 @@
             "apiVersion": "2022-03-01",
             "location": "[parameters('location')]",
             "dependsOn": [
-                "managedDiskResources",
                 "[concat('Microsoft.Network/networkInterfaces/', variables('networkInterfaceName'))]"
             ],
             "properties": {
@@ -240,6 +234,7 @@
                         "sku": "2019-datacenter-gensecond",
                         "version": "latest"
                     },
+                
                     "copy": [
                         {
                         "name": "dataDisks",
@@ -248,14 +243,15 @@
                             "name": "[format('{0}-DataDisk{1}', parameters('virtualMachineName'), range(0, parameters('dataDisksCount'))[copyIndex('dataDisks')])]",
                             "diskSizeGB": "[parameters('dataDiskSize')]",
                             "lun": "[range(0, parameters('dataDisksCount'))[copyIndex('dataDisks')]]",
-                            "createOption": "Attach",
+                            "createOption": "Empty",
                             "deleteOption": "Delete",
                             "managedDisk": {
                                 "storageAccountType": "[parameters('diskType')]"
+                                    }
+                                }
                             }
-                        }
-                        }
-                    ],
+                        ]
+                    },
                     "networkProfile": {
                         "networkInterfaces": [
                             {
@@ -280,8 +276,7 @@
                         }
                     }
             },
-                "tags": "[parameters('resourceTags')]"
-            }
+            "tags": "[parameters('resourceTags')]"
         },
         {
             "name": "[concat('shutdown-computevm-', parameters('virtualMachineName'))]",
@@ -301,9 +296,7 @@
                 "targetResourceId": "[resourceId('Microsoft.Compute/virtualMachines', parameters('virtualMachineName'))]",
                 "notificationSettings": {
                     "status": "[parameters('autoShutdownNotificationStatus')]",
-                    "notificationLocale": "[parameters('autoShutdownNotificationLocale')]",
-                    "timeInMinutes": 30,
-                    "emailRecipient": "[parameters('autoShutdownNotificationEmail')]"
+                    "timeInMinutes": 30
                 }
             },
             "tags": "[parameters('resourceTags')]"
