@@ -33,7 +33,7 @@
         },
         "dataDiskSize": {
             "type": "int",
-            "defaultValue": 1024,
+            "defaultValue": 128,
             "metadata": {
                 "description": "The size in GB of the data disks"
             }
@@ -225,7 +225,7 @@
         },
         {
             "type": "Microsoft.Compute/virtualMachines/extensions",
-            "name": "MyCustomScriptExtension",
+            "name": "[concat(parameters('virtualMachineName'),'/', 'MountDisks')]",
             "apiVersion": "2018-06-01",
             "location": "[parameters('location')]",
             "dependsOn": [
@@ -238,7 +238,7 @@
                 "autoUpgradeMinorVersion": true,
                 "settings": {
                     "fileUris": [
-                        "https://raw.githubusercontent.com/Azure/azure-docs-json-samples/master/tutorial-vm-extension/installWebServer.ps1"
+                        "https://raw.githubusercontent.com/brian926/AzureBlankVMArm/main/mountDisks.ps1"
                         ]
                 },
                 "protectedSettings": {
