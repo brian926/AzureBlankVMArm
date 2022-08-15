@@ -2,13 +2,8 @@
     "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
     "contentVersion": "1.0.0.0",
     "parameters": {
-        "resourceTags": {
-            "type": "object",
-            "defaultValue": {
-                "Department": "Deployment",
-                "Version": "Blank",
-                "Group": "Engineering"
-            }
+        "user": {
+            "type": "string"
         },
         "location": {
             "type": "string",
@@ -97,7 +92,16 @@
         "vnetId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', 'Deployment_Engineering-vnet')]",
         "subnetRef": "[concat(variables('vnetId'), '/subnets/', 'default')]",
         "networkInterfaceName": "[concat(toLower(parameters('virtualMachineName')), '-nic')]",
-        "publicIP": "[concat(toLower(parameters('virtualMachineName')), '-publicIP')]"
+        "publicIP": "[concat(toLower(parameters('virtualMachineName')), '-publicIP')]",
+        "resourceTags": {
+            "type": "object",
+            "defaultValue": {
+                "Department": "Deployment",
+                "Version": "Blank",
+                "Group": "Engineering",
+                "User": "[parameters('user')]"
+            }
+        }
     },
     "resources": [
         {
@@ -131,7 +135,7 @@
                     "id": "[variables('nsgId')]"
                 }
             },
-            "tags": "[parameters('resourceTags')]"
+            "tags": "[variables('resourceTags')]"
         },
         {
             "name": "[variables('publicIP')]",
@@ -221,7 +225,7 @@
                         }
                     }
             },
-            "tags": "[parameters('resourceTags')]"
+            "tags": "[variables('resourceTags')]"
         },
         {
             "type": "Microsoft.Compute/virtualMachines/extensions",
@@ -236,12 +240,11 @@
                 "type": "CustomScriptExtension",
                 "typeHandlerVersion": "1.10",
                 "autoUpgradeMinorVersion": true,
-                "settings": {
-                    "fileUris": [
-                        "https://raw.githubusercontent.com/brian926/AzureBlankVMArm/main/mountDisks.ps1"
-                        ]
-                },
+                "settings": {},
                 "protectedSettings": {
+                    "fileUris": [
+                        "https://XXXX.blob.core.windows.net/powershellscripts/mountDisks.ps1"
+                        ],
                     "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File mountDisks.ps1"
                 }
             }
@@ -267,7 +270,7 @@
                     "timeInMinutes": 30
                 }
             },
-            "tags": "[parameters('resourceTags')]"
+            "tags": "[variables('resourceTags')]"
         }
     ],
     "outputs": {
